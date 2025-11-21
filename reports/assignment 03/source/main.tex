@@ -1,0 +1,218 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{geometry}
+\usepackage{tabularx}
+\usepackage{caption}
+\usepackage{subcaption}
+
+\geometry{margin=2.5cm}
+
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+
+\newenvironment{solution}{\begin{proof}[Solution]}{\end{proof}}
+
+\begin{document}
+
+% --------------------------------------------------------------
+%                         Title
+% --------------------------------------------------------------
+
+\begin{titlepage}
+    \centering
+    \vspace*{\fill}
+    {\LARGE Computer Vision\par}
+    {\LARGE Assignment 03\par}
+    \vspace{1cm}
+    {\LARGE xAI\par}
+    \vspace{1cm}
+    {\large Melchor Lafuente\par}
+    {\large Iker Jauregui \par}
+    \vspace*{\fill}
+\end{titlepage}
+
+\newpage
+
+% \title{\textbf{GarbageClassifier: A Deep Learning Approach for Waste Classification}}
+% \author{Computer Vision Project}
+% \date{\today}
+
+% \begin{document}
+
+% \maketitle
+% \newpage
+\tableofcontents
+\newpage
+
+\section{Introduction}
+
+The aim of this project is to explain and interpret the best cassava disease classification model that we have trained so far. To do so, we use the \href{https://arxiv.org/pdf/1602.04938}{LIME} technique.
+
+\section{LIME}
+
+LIME stands for Local Interpretable Model-agnostic Explanations, and it's basically a clever way to peek inside black-box models and understand why they make specific predictions. The key idea is pretty straightforward: instead of trying to explain the entire model (which can be impossibly complex), LIME focuses on explaining individual predictions locally.\\
+
+Here's how it works. Say we want to understand why our model classified a particular cassava leaf image as having a specific disease. LIME takes that image and creates a bunch of similar versions by randomly "turning off" parts of it (using superpixels). It then feeds all these perturbed versions to our model and sees how the predictions change. With this dataset of variations and their predictions, LIME fits a simple, interpretable model (usually a linear one) that approximates the complex model's behavior just around that specific image.\\
+
+The beauty of LIME is that it's model-agnostic, so it doesn't care if we're using a random forest, a neural network, or, like in this case, a ResNet18. It just treats the model as a black box that spits out predictions. The output is a small set of features (in our case, image regions) that contributed most to the prediction, either positively or negatively. So we might see, for example, that the model predicted "Cassava Brown Streak Disease" because of specific discolored patches on the leaf, which makes intuitive sense and helps us trust (or distrust) the model's decision.
+
+\newpage
+\section{Best Model's Performance}
+
+The best model we trained achieved a F1 score of \textbf{0.7050} (Figure \ref{fig:cm_exp4}) with standard inference and a F1 score of \textbf{0.7261} (Figure \ref{fig:cm_tta}) with TTA (test-time augmentation).
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.6\linewidth]{figures/exp 4: fixed geo photo dropout/cassava_resnet18_gradual_unfreezing_geo_photo_aug_dropout_fixed_CM.pdf}
+    \caption{Confusion matrix over Test set for the best model with standard inference.}
+    \label{fig:cm_exp4}
+\end{figure}
+
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.6\linewidth]{figures/tta/tta_confusion_matrix.pdf}
+    \caption{Confusion matrix over Test set for the best model with TTA.}
+    \label{fig:cm_tta}
+\end{figure}
+
+\newpage
+\section{Best Model's Interpretation}
+In this section, we will try to understand the behavior of the best model trained so far. To do so, for each class, we will select the best and worst classified samples and we will apply LIME technique to see on which part of the images is the model focusing.
+
+\subsection{Best Classified Samples}
+
+\subsubsection{Cassava Bacterial Blight (CBB)}
+
+It seems that the model is focusing on the brown wilted areas of the leaf (Figure \ref{fig:best_cbb}). This kind of defect is known to be characteristic of the CBB disease.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/best_worst/best_0.pdf}
+    \caption{Best classified sample from CBB disease.}
+    \label{fig:best_cbb}
+\end{figure}
+
+\subsubsection{Cassava Brown Streak Disease (CBSD)}
+
+The image (Figure \ref{fig:best_cbsd}) seems to show something like the root of the plant and the CBSD disease attacks this part of the plant, so we can say that, at least, the model has related roots with this disease.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/best_worst/best_1.pdf}
+    \caption{Best classified sample from CBSD disease.}
+    \label{fig:best_cbsd}
+\end{figure}
+
+\newpage
+\subsubsection{Cassava Green Mottle (CGM)}
+
+This disease is characterized by a light spotted pattern present on the leaves. As we can see on LIME's segmentation (Figure \ref{fig:best_cgm}), the model seems to be focusing on the right areas.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/best_worst/best_2.pdf}
+    \caption{Best classified sample from CGM disease.}
+    \label{fig:best_cgm}
+\end{figure}
+
+\subsubsection{Cassava Mosaic Disease (CMD)}
+
+The CMD disease's main characteristic is a yellow mosaic pattern on the leaves. Also, it produces a deformation of the leaves. If we look to the segmentation of LIME (Figure \ref{fig:best_cmd}), we can see how the model is focusing on both features.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/best_worst/best_3.pdf}
+    \caption{Best classified sample from CMD disease.}
+    \label{fig:best_cmd}
+\end{figure}
+
+\newpage
+\subsubsection{Healthy}
+
+Healthy plants don't show any deformation or color patterns. We can see how the model is focusing mostly on the leaf in order to predict this class (Figure \ref{fig:best_healthy}).
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/best_worst/best_4.pdf}
+    \caption{Best classified sample from Healthy class.}
+    \label{fig:best_healthy}
+\end{figure}
+
+\subsection{Worst Classified Samples}
+
+\subsubsection{Cassava Bacterial Blight (CBB)}
+
+If we look closely to both the image and the LIME segmentation (Figure \ref{fig:worst_cbb}), we can see why the model misclassified this sample. The model is focusing on the yellow stripes of the leaves instead of the brown wilted areas. That could be the reason of why the model predicted CMD instead of CBB.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/best_worst/worst_0.pdf}
+    \caption{Worst classified sample from CBB disease.}
+    \label{fig:worst_cbb}
+\end{figure}
+
+\newpage
+\subsubsection{Cassava Brown Streak Disease (CBSD)}
+
+Looking to the sample (Figure \ref{fig:worst_cbsd}), we can't identify any disease symptoms over the plant. As it is estimated that the 8\% of the data is mislabeled, we could think that our model's guess was right when predicting this image as Healthy.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/best_worst/worst_1.pdf}
+    \caption{Worst classified sample from CBSD disease.}
+    \label{fig:worst_cbsd}
+\end{figure}
+
+\subsubsection{Cassava Green Mottle (CGM)}
+
+As we can see in the image (Figure \ref{fig:worst_cgm}), the upper leaves don't show any symptoms and the light spotted pattern of the lower leaves are hardly visible. So, we can consider that the prediction made by our model (Healthy) isn't that bad.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/best_worst/worst_2.pdf}
+    \caption{Worst classified sample from CGM disease.}
+    \label{fig:worst_cgm}
+\end{figure}
+
+\newpage
+\subsubsection{Cassava Mosaic Disease (CMD)}
+
+Apart from the necrotic factor of the roots, the CBSD also appears as a yellow coloration (called \textit{chlorosis}) of the leaves. If we look at the misclassified sample (Figure \ref{fig:worst_cmd}), we can see how it meets with the previous description. So, maybe our model didn't failed at predicting this sample as CBSD instead of CMD. 
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/best_worst/worst_3.pdf}
+    \caption{Worst classified sample from CMD disease.}
+    \label{fig:worst_cmd}
+\end{figure}
+
+\subsubsection{Healthy}
+
+Once again, we can see how the sample is clearly mislabeled, as there are obvious yellow mosaic patterns on the leaves (Figure \ref{fig:worst_healthy}). So, it makes perfect sense for our model to predict CMD instead of Healthy.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/best_worst/worst_4.pdf}
+    \caption{Worst classified sample from Healthy class.}
+    \label{fig:worst_healthy}
+\end{figure}
+
+\newpage
+\section{Conclusions}
+
+The LIME interpretability analysis revealed that our model is learning meaningful disease-specific features. For best classified samples, the model correctly focused on characteristic symptoms: brown wilted areas for CBB, root structures for CBSD, light spotted patterns for CGM, yellow mosaics for CMD, and uniform green leaves for Healthy plants.\\
+
+Moreover, the analysis of worst classified samples uncovered potential mislabeling issues in the dataset. Several misclassifications appeared to be reasonable predictions given the visual evidence, suggesting that the reported 8\% mislabeling rate may be affecting model performance.
+
+\section{Future Work}
+
+Given the evidence of mislabeling, in order to improve the performance over the \textit{Cassava Disease Classification} problem, a data cleaning process guided by model predictions and expert validation would be highly recommended.
+
+\end{document}

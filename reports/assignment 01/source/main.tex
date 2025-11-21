@@ -1,0 +1,433 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{geometry}
+\usepackage{tabularx}
+\usepackage{caption}
+\usepackage{subcaption}
+
+\geometry{margin=2.5cm}
+
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+
+\newenvironment{solution}{\begin{proof}[Solution]}{\end{proof}}
+
+\begin{document}
+
+% --------------------------------------------------------------
+%                         Title
+% --------------------------------------------------------------
+
+\begin{titlepage}
+    \centering
+    \vspace*{\fill}
+    {\LARGE Computer Vision\par}
+    {\LARGE Assignment 01\par}
+    \vspace{1cm}
+    {\LARGE Transfer Learning with Cassava\par}
+    \vspace{1cm}
+    {\large Melchor Lafuente\par}
+    {\large Iker Jauregui \par}
+    \vspace*{\fill}
+\end{titlepage}
+
+\newpage
+
+% \title{\textbf{GarbageClassifier: A Deep Learning Approach for Waste Classification}}
+% \author{Computer Vision Project}
+% \date{\today}
+
+% \begin{document}
+
+% \maketitle
+% \newpage
+\tableofcontents
+\newpage
+
+\section{Introduction}
+
+The aim of this project is to determine whether a cassava leaf is diseased
+and, if so, identify the type of disease: Cassava Bacterial Blight (CBB), Cassava Brown Streak Disease (CBSD), Cassava Green Mottle (CGM) and Cassava Mosaic Disease (CMD).
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.9\linewidth]{figures/EDA/random_samples_train_seed42.pdf}
+    \caption{Random samples for each class proceding from predefined train split}
+    \label{fig:intro_random_samples}
+\end{figure}
+
+\newpage
+\section{Exploratory Data Analysis (EDA)}
+
+An Exploratory Data Analysis was performed to understand the dataset characteristics and guide model development. The following key observations were made:
+
+\subsection{Dataset Characteristics}
+
+\begin{itemize}
+    \item All images have uniform dimensions of 800$\times$600 pixels.
+    \item The CMD class is highly imbalanced along all three predefined splits (Figure \ref{fig:class_dist_train}, Figure \ref{fig:class_dist_val} and Figure \ref{fig:class_dist_test}).
+\end{itemize}
+
+\begin{figure}[h!]
+    \centering
+    \begin{minipage}{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/EDA/predefined_train_set_split_class_dist.pdf}
+        \caption{Class distribution on Train set.}
+        \label{fig:class_dist_train}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/EDA/predefined_val_set_split_class_dist.pdf}
+        \caption{Class distribution on Val set.}
+        \label{fig:class_dist_val}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/EDA/predefined_test_set_split_class_dist.pdf}
+        \caption{Class distribution on Test set.}
+        \label{fig:class_dist_test}
+    \end{minipage}
+\end{figure}
+
+\subsection{Class Prototypes Analysis}
+
+Class prototypes were computed using median aggregation method (Figure \ref{fig:protos}). At first sight, we could think that there aren't any differences between the different prototypes, but if we look closely we can observe some distinctive visual characteristics for each class:
+
+\begin{itemize}
+    \item Both \textbf{CBB} and \textbf{CBSD} classes seem to be lighter. That makes sense because those diseases color the surface of the leaves with yellow.
+    \item The \textbf{CGM} class is a little more brownish than the others and that may be because that disease affects not only to the leaves but also to the roots of the plant.
+    \item The \textbf{CMD} disease seems to have the smoothest texture among all classes.
+\end{itemize}
+
+There aren't notable differences between the prototypes generated over the different splits, so we can say that these observations maintain among the three sets.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{\textwidth}
+        \centering
+        \includegraphics[width=0.65\textwidth]{figures/EDA/mean_protos_train.pdf}
+        \caption{Mean prototypes of Train set.}
+        \label{fig:train_proto}
+    \end{subfigure}
+    
+    \vspace{0.5cm}
+    
+    \begin{subfigure}{\textwidth}
+        \centering
+        \includegraphics[width=0.65\textwidth]{figures/EDA/mean_protos_val.pdf}
+        \caption{Mean prototypes of Val set.}
+        \label{fig:val_proto}
+    \end{subfigure}
+    
+    \vspace{0.5cm}
+    
+    \begin{subfigure}{\textwidth}
+        \centering
+        \includegraphics[width=0.65\textwidth]{figures/EDA/mean_protos_test.pdf}
+        \caption{Mean prototypes of Test set.}
+        \label{fig:test_proto}
+    \end{subfigure}
+
+    \caption{Mean image prototypes for each class among Train, Val and Test splits.}
+    \label{fig:protos}
+    
+\end{figure}
+
+\section{Experimental Setup}
+
+\subsection{Dataset Splitting}
+
+The dataset was divided into training, validation, and test sets using the predefined splits stated at the metadata file \textit{cassava\_split.csv}, but the imbalance problem was corrected by random downsampling the CMD class for Train and Val sets (Test set was kept unmodified).
+
+\begin{table}[H]
+\scriptsize
+\begin{tabularx}{\textwidth}{lXXXXX}
+\toprule
+\textbf{Set} & \textbf{CBB samples} & \textbf{CBSD samples} & \textbf{CGM samples} & \textbf{CMD samples} & \textbf{Healthy samples} \\
+\midrule
+Train & 761 & 1532 & 1670 & 2000 & 1804 \\
+Val & 163 & 328 & 358 & 400 & 387 \\
+Test & 163 & 328 & 358 & 1974 & 387 \\
+\bottomrule
+\end{tabularx}
+\caption{Dataset splits used during the experiments.}
+\label{tab:dataset}
+\end{table}
+
+\subsection{Callbacks and LR Scheduler}
+
+During the experiments, two main callbacks were used: \textbf{EarlyStopping} and \textbf{ModelCheckpoint}. For batch size selection, an initial \textbf{BatchSizeFinder} was used and it suggested a value of 2048 samples. That size allocated almost the whole memory of the GPU (50GB) so we finally used a batch size of 1024. Finally, instead of using a LearningRateFinder, we decided to employ a learning rate scheduler. We decided to use the \textbf{ReduceLROnPlateau} scheduler, as it could lead the models to obtain the best possible validation losses.
+
+\subsection{Model Architecture and Evaluation Metric}
+As the main purpose of this study is to analyze the obtained results after applying different transfer learning techniques, we decided to fix the model architecture to a \textbf{ResNet18}. It's a modern and a powerful enough model, but it is one of the smallest (in terms of layer depth) architectures, so it could let us perform different experiments in a reasonable time.
+
+For the evaluation metric, we selected the \textbf{F1 Score (macro)}, as we wanted to measure the model's performance over the unbalanced test set.
+
+\newpage
+\section{Experiments}
+
+\subsection{Experiment 1: Model Trained from Scratch}
+
+In this first experiment we just trained the model from scratch, without applying any transfer learning technique. It achieved a F1 score (macro) of \textbf{0.4639}.
+
+\paragraph{Results:}\
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.6\linewidth]{figures/test 1: scratch/cassava_resnet18_from_scratch_losses.pdf}
+    \caption{Loss curves for the not pretrained ResNet18 model.}
+    \label{fig:loss_scratch}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.6\linewidth]{figures/test 1: scratch/cassava_resnet18_from_scratch_CM.pdf}
+    \caption{Confusion matrix over Test set for the not pretrained ResNet18 model.}
+    \label{fig:cm_scratch}
+\end{figure}
+
+\newpage
+
+\subsection{Experiment 2: Transfer Learning with Feature Extraction}
+
+In this experiment, we used pretrained weights from ImageNet (\href{https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet18.html#torchvision.models.ResNet18_Weights}{ResNet18\_Weights.IMAGENET1K\_V1}) and applied the \textit{Feature Extraction} transfer learning technique. We can observe how this time the validation loss reached lower values than on the previous experiment (Figure \ref{fig:loss_scratch} and Figure \ref{fig:loss_feat_extract}). Moreover, the model achieved a F1 score value of \textbf{0.5558} (0.0919 points more respect to the not pretrained model). These results state that the model took advantage from the prelearned kernels.
+
+\paragraph{Results:}\
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.6\linewidth]{figures/test 2: pre + feat extract/cassava_resnet18_freeze_all_except_last_layer_losses.pdf}
+    \caption{Loss curves for the ResNet18 model pretrained with feature extraction technique.}
+    \label{fig:loss_feat_extract}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.6\linewidth]{figures/test 2: pre + feat extract/cassava_resnet18_freeze_all_except_last_layer_CM.pdf}
+    \caption{Confusion matrix over Test set for the ResNet18 model pretrained with feature extraction technique.}
+    \label{fig:cm_feat_extract}
+\end{figure}
+
+\newpage
+
+\subsection{Experiment 3: Fine-Tunning with Gradual Unfreezing}
+
+In this experiment, we also used the pretrained weights from ImageNet, but this time we applied a different transfer learning technique: Fine-tunning with gradual unfreezing. This gradual unfreezing was performed per blocks, starting from the classification head and finishing at the input layer of the network (Table \ref{tab:blocks}). We generated a loss curve graph each time a block was unfroze. As we can see on the results (Figure \ref{fig:grid_2x3}), the model started to strongly overfit quite soon, just when the second block (the last feature extractor block of the network) was unfroze Even so, it achieved a F1 score of \textbf{0.6423} (0.0865 points more respect to the previous experiment).
+
+\begin{table}[H]
+\scriptsize
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Block} & \textbf{Layers} \\
+\midrule
+Block \#1 & fc.weight, fc.bias \\
+\midrule
+Block \#2 & layer4.0.conv1.weight, layer4.0.bn1.weight, layer4.0.bn1.bias, layer4.0.conv2.weight, layer4.0.bn2.weight, layer4.0.bn2.bias, layer4.0.downsample.0.weight, layer4.0.downsample.1.weight, layer4.0.downsample.1.bias, layer4.1.conv1.weight, layer4.1.bn1.weight,  layer4.1.bn1.bias, layer4.1.conv2.weight, layer4.1.bn2.weight, layer4.1.bn2.bias \\
+\midrule
+Block \#3 & layer3.0.conv1.weight, layer3.0.bn1.weight, layer3.0.bn1.bias, layer3.0.conv2.weight, layer3.0.bn2.weight, layer3.0.bn2.bias, layer3.0.downsample.0.weight, layer3.0.downsample.1.weight, layer3.0.downsample.1.bias, layer3.1.conv1.weight, layer3.1.bn1.weight, layer3.1.bn1.bias, layer3.1.conv2.weight, layer3.1.bn2.weight, layer3.1.bn2.bias \\
+\midrule
+Block \#4 & layer2.0.conv1.weight, layer2.0.bn1.weight, layer2.0.bn1.bias, layer2.0.conv2.weight, layer2.0.bn2.weight, layer2.0.bn2.bias, layer2.0.downsample.0.weight, layer2.0.downsample.1.weight, layer2.0.downsample.1.bias, layer2.1.conv1.weight, layer2.1.bn1.weight, layer2.1.bn1.bias, layer2.1.conv2.weight, layer2.1.bn2.weight, layer2.1.bn2.bias \\
+\midrule
+Block \#5 & layer1.0.conv1.weight, layer1.0.bn1.weight, layer1.0.bn1.bias, layer1.0.conv2.weight, layer1.0.bn2.weight, layer1.0.bn2.bias, layer1.1.conv1.weight, layer1.1.bn1.weight, layer1.1.bn1.bias, layer1.1.conv2.weight, layer1.1.bn2.weight, layer1.1.bn2.bias \\
+\midrule
+Block \#6 & conv1.weight, bn1.weight, bn1.bias \\
+\bottomrule
+\end{tabularx}
+\caption{Block composition for the gradual unfreezing technique.}
+\label{tab:blocks}
+\end{table}
+
+\paragraph{Results:}\
+\begin{figure}[h!]
+    \centering
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/test 3: gradual unfreezing/cassava_resnet18_gradual_unfreezing_1_step_0_losses.pdf}
+        \caption{Frozen until block \#1}
+        \label{fig:grad_unfreeze_loss_0}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/test 3: gradual unfreezing/cassava_resnet18_gradual_unfreezing_1_step_1_losses.pdf}
+        \caption{Frozen until block \#2}
+        \label{fig:subplot2}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/test 3: gradual unfreezing/cassava_resnet18_gradual_unfreezing_1_step_2_losses.pdf}
+        \caption{Frozen until block \#3}
+        \label{fig:subplot3}
+    \end{subfigure}
+    
+    \vspace{0.5em}
+    
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/test 3: gradual unfreezing/cassava_resnet18_gradual_unfreezing_1_step_3_losses.pdf}
+        \caption{Frozen until block \#4}
+        \label{fig:subplot4}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/test 3: gradual unfreezing/cassava_resnet18_gradual_unfreezing_1_step_4_losses.pdf}
+        \caption{Frozen until block \#5}
+        \label{fig:subplot5}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/test 3: gradual unfreezing/cassava_resnet18_gradual_unfreezing_1_step_5_losses.pdf}
+        \caption{Completely unfrozen}
+        \label{fig:subplot6}
+    \end{subfigure}
+    
+    \caption{Loss curves for the ResNet18 model trained with the gradual unfreezing technique.}
+    \label{fig:grid_2x3}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.6\linewidth]{figures/test 3: gradual unfreezing/cassava_resnet18_gradual_unfreezing_CM.pdf}
+    \caption{Confusion matrix over Test set for the ResNet18 model trained with the gradual unfreezing technique.}
+    \label{fig:cm_gradual_unfreeze}
+\end{figure}
+
+\newpage
+
+\subsection{Experiment 4: Fine-Tunning with Gradual Unfreezing and training subsets}
+
+This experiment follows the same gradual unfreezing strategy as before, with a single difference: instead of using the entire training set at each stage, we used different subsets for every newly unfrozen stage. The goal was to introduce additional regularization and mitigate overfitting. As shown in the results (Figure \ref{fig:grid_2x3}), the model still overfits, but the loss curves appear smoother compared to the previous experiment. The final model reached an F1 score of 0.6536, which is an improvement of 0.0113 points over the previous setup.
+
+\paragraph{Results:}\
+\begin{figure}[h!]
+    \centering
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/test 5: gradual unfreezing 2/cassava_resnet18_gradual_unfreezing_with_training_subsets_1_step_0_losses.pdf}
+        \caption{Frozen until block \#1}
+        \label{fig:grad_unfreeze_loss_0}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/test 5: gradual unfreezing 2/cassava_resnet18_gradual_unfreezing_with_training_subsets_1_step_1_losses.pdf}
+        \caption{Frozen until block \#2}
+        \label{fig:subplot2}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/test 5: gradual unfreezing 2/cassava_resnet18_gradual_unfreezing_with_training_subsets_1_step_2_losses.pdf}
+        \caption{Frozen until block \#3}
+        \label{fig:subplot3}
+    \end{subfigure}
+    
+    \vspace{0.5em}
+    
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/test 5: gradual unfreezing 2/cassava_resnet18_gradual_unfreezing_with_training_subsets_1_step_3_losses.pdf}
+        \caption{Frozen until block \#4}
+        \label{fig:subplot4}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/test 5: gradual unfreezing 2/cassava_resnet18_gradual_unfreezing_with_training_subsets_1_step_4_losses.pdf}
+        \caption{Frozen until block \#5}
+        \label{fig:subplot5}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/test 5: gradual unfreezing 2/cassava_resnet18_gradual_unfreezing_with_training_subsets_1_step_6_losses.pdf}
+        \caption{Completely unfrozen}
+        \label{fig:subplot6}
+    \end{subfigure}
+    
+    \caption{Loss curves for the ResNet18 model trained with the gradual unfreezing technique.}
+    \label{fig:grid_2x3}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.6\linewidth]{figures/test 5: gradual unfreezing 2/exp_5_cm.pdf}
+    \caption{Confusion matrix over Test set for the ResNet18 model trained with the gradual unfreezing technique.}
+    \label{fig:cm_gradual_unfreeze}
+\end{figure}
+
+\subsection{Experiment 5: Fine-Tunning with Layer-wise Learning Rates}
+
+In this experiment, we applied a another fine-tunning technique that uses layer-wise learning rates. Using the defined blocks of the previous experiment, we applied a different learning rate value for each block, using bigger learning rates on the tail of the network and smaller learning rates on the input side (Table \ref{tab:layer-wise_lr}). Similar to the previous experiment, the model started to overfit in the early training epochs (Figure \ref{fig:loss_layer-wise}). The obtained F1 score was of \textbf{0.6167}, lower than the previous experiment's score but higher than the second one's.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lc}
+\toprule
+\textbf{Block} & \textbf{Learning rate} \\
+\midrule
+Block \#1 & 1e-3 \\
+\midrule
+Block \#2 & 1e-4 \\
+\midrule
+Block \#3 & 1e-5 \\
+\midrule
+Block \#4 & 1e-6 \\
+\midrule
+Block \#5 & 1e-7 \\
+\midrule
+Block \#6 & 1e-8 \\
+\bottomrule
+\end{tabular}
+\caption{Used learning rates values among the different blocks of the RestNet18.}
+\label{tab:layer-wise_lr}
+\end{table}
+
+\newpage
+\paragraph{Results:}\
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.6\linewidth]{figures/test 4: layer wise/cassava_resnet18_freeze_layer_wise_losses.pdf}
+    \caption{Loss curves for the ResNet18 model trained with layer-wise learning rates technique.}
+    \label{fig:loss_layer-wise}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.6\linewidth]{figures/test 4: layer wise/cassava_resnet18_freeze_layer_wise_CM.pdf}
+    \caption{Confusion matrix over Test set for the ResNet18 model trained with the layer-wise learning rates technique.}
+    \label{fig:cm_layer-wise}
+\end{figure}
+
+\newpage
+\section{Conclusions}
+
+From the experiments carried out, we highlight the following conclusions:
+
+\begin{itemize}
+    \item Gradual unfreezing consistently stabilizes training and produces smoother loss curves compared to full fine-tuning from the start.
+    \item Using subsets of the training data during unfreezing introduces mild regularization, slightly reducing overfitting.
+    \item Despite improvements in curve stability, overfitting remains a challenge across all experiments.
+    \item The best-performing configuration achieved an F1 score of \textbf{0.6536}, showing only incremental gains over simpler fine-tuning strategies.
+    \item Variations in data selection during unfreezing appear to influence model robustness more than learning-rate adjustments alone.
+\end{itemize}
+
+\section{Future Work}
+
+\begin{itemize}
+    \item Evaluate stronger data augmentation techniques to further reduce overfitting.
+    \item Explore advanced regularization methods such as adding dropout layers to the model.
+    \item Test alternative backbone architectures (e.g., EfficientNet, ConvNeXt, ViT).
+    \item Incorporate semi-supervised or self-supervised pretraining to improve feature generalization.
+\end{itemize}
+\end{document}

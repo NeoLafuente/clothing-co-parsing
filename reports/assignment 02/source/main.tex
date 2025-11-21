@@ -1,0 +1,529 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{geometry}
+\usepackage{tabularx}
+\usepackage{caption}
+\usepackage{subcaption}
+
+\geometry{margin=2.5cm}
+
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+
+\newenvironment{solution}{\begin{proof}[Solution]}{\end{proof}}
+
+\begin{document}
+
+% --------------------------------------------------------------
+%                         Title
+% --------------------------------------------------------------
+
+\begin{titlepage}
+    \centering
+    \vspace*{\fill}
+    {\LARGE Computer Vision\par}
+    {\LARGE Assignment 02\par}
+    \vspace{1cm}
+    {\LARGE Data Augmentation on Cassava\par}
+    \vspace{1cm}
+    {\large Melchor Lafuente\par}
+    {\large Iker Jauregui \par}
+    \vspace*{\fill}
+\end{titlepage}
+
+\newpage
+
+% \title{\textbf{GarbageClassifier: A Deep Learning Approach for Waste Classification}}
+% \author{Computer Vision Project}
+% \date{\today}
+
+% \begin{document}
+
+% \maketitle
+% \newpage
+\tableofcontents
+\newpage
+
+\section{Introduction}
+
+The aim of this project is to analyze the impact of different data augmentation techniques have in the performance.
+
+\section{Experimental Setup}
+
+\subsection{Dataset Splitting}
+
+The dataset was divided into training, validation, and test sets using the predefined splits stated at the metadata file \textit{cassava\_split.csv}, but the imbalance problem was corrected by random downsampling the CMD class for Train and Val sets (Test set was kept unmodified).
+
+\begin{table}[H]
+\scriptsize
+\begin{tabularx}{\textwidth}{lXXXXX}
+\toprule
+\textbf{Set} & \textbf{CBB samples} & \textbf{CBSD samples} & \textbf{CGM samples} & \textbf{CMD samples} & \textbf{Healthy samples} \\
+\midrule
+Train & 761 & 1532 & 1670 & 2000 & 1804 \\
+Val & 163 & 328 & 358 & 400 & 387 \\
+Test & 163 & 328 & 358 & 1974 & 387 \\
+\bottomrule
+\end{tabularx}
+\caption{Dataset splits used during the experiments.}
+\label{tab:dataset}
+\end{table}
+
+\subsection{Callbacks and LR Scheduler}
+
+During the experiments, two main callbacks were used: \textbf{EarlyStopping} and \textbf{ModelCheckpoint}. For batch size selection, an initial \textbf{BatchSizeFinder} was used and it suggested a value of 2048 samples. That size allocated almost the whole memory of the GPU (50GB) so we finally used a batch size of 1024. Finally, instead of using a LearningRateFinder, we decided to employ a learning rate scheduler. We decided to use the \textbf{ReduceLROnPlateau} scheduler, as it could lead the models to obtain the best possible validation losses.
+
+\subsection{Model Architecture and Evaluation Metric}
+As the main purpose of this study is to analyze the obtained results after applying different data augmentation techniques, we decided to fix the model architecture to a \textbf{ResNet18}.\\
+
+For the evaluation metric, we selected the \textbf{F1 Score (macro)}, as we wanted to measure the model's performance over the unbalanced test set.
+
+\newpage
+\section{Baseline}
+As baseline for this project, we took the best model from the previous assignment (\textit{Assignment 01: Transfer Learning with Cassava}). It is a ResNet18 with pretrained weights (\href{https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet18.html#torchvision.models.ResNet18_Weights}{ResNet18\_Weights.IMAGENET1K\_V1}) and it was fine-tunned with gradual unfreezing (per blocks) technique. It achieved a F1 (macro) score of \textbf{0.6423}.
+
+\section{Experiments}
+For the next experiments, the baseline's model architecture and training method was fixed while different data augmentation techniques were applied over the training data. On the validation and test splits only ImageNet transforms were used.
+
+\subsection{Experiment 1: Geometric Augmentations}
+
+In this first experiment we tested the performance of geometric transformations (Table \ref{tab:geo_aug}). If we look to the loss curves (Figure \ref{fig:exp1_grid_2x3}) we can see how the model still overfits to the trainig data. However, it achieved a F1 score (macro) of \textbf{0.6893} (0.047 points more respect to the baseline model).
+
+\begin{table}[H]
+\scriptsize
+\begin{tabularx}{\textwidth}{lXX}
+\toprule
+\textbf{Transformation} & \textbf{Parameters} & \textbf{Probability} \\
+\midrule
+Resize & \texttt{size=256, interpolation=BILINEAR} & 100\% \\
+\midrule
+RandomHorizontalFlip & --- & 10\% \\
+\midrule
+RandomVerticalFlip & --- & 10\% \\
+\midrule
+RandomResizedCrop & \texttt{size=256, scale=(0.5, 1.0), ratio=(0.75, 1.33)} & 20\% \\
+\midrule
+RandomRotation & \texttt{degrees=(-90, 90)} & 20\% \\
+\midrule
+RandomAffine & \texttt{degrees=(0, 0), translate=(0.25, 0.25)} & 20\% \\
+\midrule
+CenterCrop & \texttt{size=256} & 100\% \\
+\midrule
+ToTensor & --- & 100\% \\
+\midrule
+Normalize & \texttt{mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]} & 100\% \\
+\bottomrule
+\end{tabularx}
+\caption{Configuration of the geometric transformations used in the experiment 1.}
+\label{tab:geo_aug}
+\end{table}
+
+\newpage
+\paragraph{Results:}\
+\begin{figure}[h!]
+    \centering
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 1: geo augments/cassava_resnet18_gradual_unfreezing_step_0_geo_aug_losses.pdf}
+        \caption{Frozen until block \#1}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 1: geo augments/cassava_resnet18_gradual_unfreezing_step_1_geo_aug_losses.pdf}
+        \caption{Frozen until block \#2}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 1: geo augments/cassava_resnet18_gradual_unfreezing_step_2_geo_aug_losses.pdf}
+        \caption{Frozen until block \#3}
+    \end{subfigure}
+    
+    \vspace{0.5em}
+    
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 1: geo augments/cassava_resnet18_gradual_unfreezing_step_3_geo_aug_losses.pdf}
+        \caption{Frozen until block \#4}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 1: geo augments/cassava_resnet18_gradual_unfreezing_step_4_geo_aug_losses.pdf}
+        \caption{Frozen until block \#5}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 1: geo augments/cassava_resnet18_gradual_unfreezing_step_5_geo_aug_losses.pdf}
+        \caption{Completely unfrozen}
+    \end{subfigure}
+    
+    \caption{Loss curves for the model fine-tunned with gradual unfreezing using geometric data augmentation.}
+    \label{fig:exp1_grid_2x3}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.6\linewidth]{figures/exp 1: geo augments/cassava_resnet18_gradual_unfreezing_geo_aug_CM.pdf}
+    \caption{Confusion matrix over Test set for the fine-tunned with gradual unfreezing using geometric data augmentation.}
+    \label{fig:cm_scratch}
+\end{figure}
+
+\newpage
+
+\subsection{Experiment 1 bis: Geometric Augmentations with Dropout}
+
+As we have seen in the previous experiment, even if we apply data augmentation, the model still overfits. In order to try to solve this problem, the previous experiment was repeated but using dropout regularization technique on each unfrozen block (all probabilities set to 0.2). As we can see in the loss curves (Figure \ref{fig:exp1bis_grid_2x3}) the problem persists. However, looking at the performance over Test set (Figure \ref{fig:cm_1bis}), we can see that the model achieved a F1 score (macro) of \textbf{0.6952} (0.0529 points more respect to the baseline model and 0.0059 points more respect to the previous experiment). So, we can say that dropout improved generalization.
+
+\paragraph{Results:}\
+\begin{figure}[h!]
+    \centering
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 1bis: geo aug with dropout/cassava_resnet18_gradual_unfreezing_step_0_geo_aug_dropout_losses.pdf}
+        \caption{Frozen until block \#1}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 1bis: geo aug with dropout/cassava_resnet18_gradual_unfreezing_step_1_geo_aug_dropout_losses.pdf}
+        \caption{Frozen until block \#2}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 1bis: geo aug with dropout/cassava_resnet18_gradual_unfreezing_step_2_geo_aug_dropout_losses.pdf}
+        \caption{Frozen until block \#3}
+    \end{subfigure}
+    
+    \vspace{0.5em}
+    
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 1bis: geo aug with dropout/cassava_resnet18_gradual_unfreezing_step_3_geo_aug_dropout_losses.pdf}
+        \caption{Frozen until block \#4}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 1bis: geo aug with dropout/cassava_resnet18_gradual_unfreezing_step_4_geo_aug_dropout_losses.pdf}
+        \caption{Frozen until block \#5}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 1bis: geo aug with dropout/cassava_resnet18_gradual_unfreezing_step_5_geo_aug_dropout_losses.pdf}
+        \caption{Completely unfrozen}
+    \end{subfigure}
+    
+    \caption{Loss curves for the model fine-tunned with gradual unfreezing using geometric data augmentation and dropout regularization.}
+    \label{fig:exp1bis_grid_2x3}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.6\linewidth]{figures/exp 1bis: geo aug with dropout/cassava_resnet18_gradual_unfreezing_geo_aug_dropout_CM.pdf}
+    \caption{Confusion matrix over Test set for the fine-tunned with gradual unfreezing using geometric data augmentation and dropout regularization.}
+    \label{fig:cm_1bis}
+\end{figure}
+
+\newpage
+\subsection{Experiment 2: Photometric Augmentations with Dropout}
+
+In the previous experiment we saw that dropout demonstrated to be useful, so in this experiment we applied the same dropout configuration. However, this time we wanted to analyze how photometric transformations would affect to the model's performance (Table \ref{tab:photo_aug}). If we look to the loss curves (Figure \ref{fig:exp2_grid_2x3}) we can see that again the model overfits to the trainig data. This time it achieved a F1 score (macro) of \textbf{0.5858} (0.0565 points less respect to the baseline model), maybe because it overfitted even more than in previous experiments.
+
+\begin{table}[H]
+\scriptsize
+\begin{tabularx}{\textwidth}{lXX}
+\toprule
+\textbf{Transformation} & \textbf{Parameters} & \textbf{Probability} \\
+\midrule
+Resize & \texttt{size=256, interpolation=BILINEAR} & 100\% \\
+\midrule
+ColorJitter & \texttt{brightness=0.25, contrast=0.25, saturation=0.25, hue=0.025} & 50\% \\
+\midrule
+GaussianBlur & \texttt{kernel\_size=(3,3), sigma=(0.1, 2.0)} & 10\% \\
+\midrule
+CenterCrop & \texttt{size=256} & 100\% \\
+\midrule
+ToTensor & --- & 100\% \\
+\midrule
+GaussianNoise & \texttt{mean=0.0, std=0.1} & 10\% \\
+\midrule
+Normalize & \texttt{mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]} & 100\% \\
+\bottomrule
+\end{tabularx}
+\caption{Configuration of the photometric transformations used in the experiment 2.}
+\label{tab:photo_aug}
+\end{table}
+
+\newpage
+\paragraph{Results:}\
+\begin{figure}[h!]
+    \centering
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 2: photo aug with dropout/cassava_resnet18_gradual_unfreezing_step_0_photo_aug_dropout_losses.pdf}
+        \caption{Frozen until block \#1}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 2: photo aug with dropout/cassava_resnet18_gradual_unfreezing_step_1_photo_aug_dropout_losses.pdf}
+        \caption{Frozen until block \#2}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 2: photo aug with dropout/cassava_resnet18_gradual_unfreezing_step_2_photo_aug_dropout_losses.pdf}
+        \caption{Frozen until block \#3}
+    \end{subfigure}
+    
+    \vspace{0.5em}
+    
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 2: photo aug with dropout/cassava_resnet18_gradual_unfreezing_step_3_photo_aug_dropout_losses.pdf}
+        \caption{Frozen until block \#4}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 2: photo aug with dropout/cassava_resnet18_gradual_unfreezing_step_4_photo_aug_dropout_losses.pdf}
+        \caption{Frozen until block \#5}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 2: photo aug with dropout/cassava_resnet18_gradual_unfreezing_step_5_photo_aug_dropout_losses.pdf}
+        \caption{Completely unfrozen}
+    \end{subfigure}
+    
+    \caption{Loss curves for the model fine-tunned with gradual unfreezing using photometric data augmentation and dropout regularization.}
+    \label{fig:exp2_grid_2x3}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.6\linewidth]{figures/exp 2: photo aug with dropout/cassava_resnet18_gradual_unfreezing_photo_aug_dropout_CM.pdf}
+    \caption{Confusion matrix over Test set for the fine-tunned with gradual unfreezing using photometric data augmentation and dropout regularization.}
+    \label{fig:cm_exp2}
+\end{figure}
+
+\newpage
+\subsection{Experiment 3: Geometric and Photometric Augmentations with Dropout}
+
+We have seen that by far the model is overfitting, so in this experiments we apply both geometric and photometric transformations (Table \ref{tab:geo_photo_aug}) to see if this can help the model to generalize better. Unfortunately, the loss curves show that the model still overfits (Figure \ref{fig:exp3_grid_2x3}). However, we notice a slight improvement over the F1 score obtained over the Test set: \textbf{0.7017} (0.0594 points more respect to the baseline model).
+
+\begin{table}[H]
+\scriptsize
+\begin{tabularx}{\textwidth}{lXX}
+\toprule
+\textbf{Transformation} & \textbf{Parameters} & \textbf{Probability} \\
+\midrule
+Resize & \texttt{size=256, interpolation=BILINEAR} & 100\% \\
+\midrule
+ColorJitter & \texttt{brightness=0.25, contrast=0.25, saturation=0.25, hue=0.025} & 50\% \\
+\midrule
+GaussianBlur & \texttt{kernel\_size=(3,3), sigma=(0.1, 2.0)} & 10\% \\
+\midrule
+RandomHorizontalFlip & --- & 10\% \\
+\midrule
+RandomVerticalFlip & --- & 10\% \\
+\midrule
+RandomResizedCrop & \texttt{size=256, scale=(0.5, 1.0), ratio=(0.75, 1.33)} & 20\% \\
+\midrule
+RandomRotation & \texttt{degrees=(-90, 90)} & 20\% \\
+\midrule
+RandomAffine & \texttt{degrees=(0, 0), translate=(0.25, 0.25)} & 20\% \\
+\midrule
+CenterCrop & \texttt{size=256} & 100\% \\
+\midrule
+ToTensor & --- & 100\% \\
+\midrule
+GaussianNoise & \texttt{mean=0.0, std=0.1} & 10\% \\
+\midrule
+Normalize & \texttt{mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]} & 100\% \\
+\bottomrule
+\end{tabularx}
+\caption{Configuration of the geometric and photometric transformations used in the experiment 3.}
+\label{tab:geo_photo_aug}
+\end{table}
+
+\newpage
+\paragraph{Results:}\
+\begin{figure}[h!]
+    \centering
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 3: geo photo augs with drop/cassava_resnet18_gradual_unfreezing_step_0_geo_photo_aug_dropout_losses.pdf}
+        \caption{Frozen until block \#1}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 3: geo photo augs with drop/cassava_resnet18_gradual_unfreezing_step_1_geo_photo_aug_dropout_losses.pdf}
+        \caption{Frozen until block \#2}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 3: geo photo augs with drop/cassava_resnet18_gradual_unfreezing_step_2_geo_photo_aug_dropout_losses.pdf}
+        \caption{Frozen until block \#3}
+    \end{subfigure}
+    
+    \vspace{0.5em}
+    
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 3: geo photo augs with drop/cassava_resnet18_gradual_unfreezing_step_3_geo_photo_aug_dropout_losses.pdf}
+        \caption{Frozen until block \#4}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 3: geo photo augs with drop/cassava_resnet18_gradual_unfreezing_step_4_geo_photo_aug_dropout_losses.pdf}
+        \caption{Frozen until block \#5}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 3: geo photo augs with drop/cassava_resnet18_gradual_unfreezing_step_5_geo_photo_aug_dropout_losses.pdf}
+        \caption{Completely unfrozen}
+    \end{subfigure}
+    
+    \caption{Loss curves for the model fine-tunned with gradual unfreezing using geometric and photometric data augmentation and dropout regularization.}
+    \label{fig:exp3_grid_2x3}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.6\linewidth]{figures/exp 3: geo photo augs with drop/cassava_resnet18_gradual_unfreezing_geo_photo_aug_dropout_CM.pdf}
+    \caption{Confusion matrix over Test set for the fine-tunned with gradual unfreezing using geometric and photometric data augmentation and dropout regularization.}
+    \label{fig:cm_exp3}
+\end{figure}
+
+\subsection{Experiment 3 bis: Previous Experiment Fixed}
+
+At this point we noticed that we weren't using exactly the same ImageNet base transforms for the Train split, because we were applying a CenterCrop of size 256x256 (while the pretrained weights were achieved by using a size of 224x224). So, we fixed the \textbf{CenterCrop size to 224x224}.
+Moreover, Christian Ayala (teacher of the subject) mentioned that there was an implementation error on the gradual unfreezing technique. We fixed it too. So, basically, this experiment's configuration is the same as the previous one, but with the recently mentioned problems solved.
+
+This time the model achieveD a F1 score of \textbf{0.7050}, which is a minimal improvement from the previous experiment (0.0033 points more).
+
+\paragraph{Results:}\
+\begin{figure}[h!]
+    \centering
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 4: fixed geo photo dropout/cassava_resnet18_gradual_unfreezing_step_0_geo_photo_aug_dropout_fixed_losses.pdf}
+        \caption{Frozen until block \#1}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 4: fixed geo photo dropout/cassava_resnet18_gradual_unfreezing_step_1_geo_photo_aug_dropout_fixed_losses.pdf}
+        \caption{Frozen until block \#2}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 4: fixed geo photo dropout/cassava_resnet18_gradual_unfreezing_step_2_geo_photo_aug_dropout_fixed_losses.pdf}
+        \caption{Frozen until block \#3}
+    \end{subfigure}
+    
+    \vspace{0.5em}
+    
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 4: fixed geo photo dropout/cassava_resnet18_gradual_unfreezing_step_3_geo_photo_aug_dropout_fixed_losses.pdf}
+        \caption{Frozen until block \#4}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 4: fixed geo photo dropout/cassava_resnet18_gradual_unfreezing_step_4_geo_photo_aug_dropout_fixed_losses.pdf}
+        \caption{Frozen until block \#5}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/exp 4: fixed geo photo dropout/cassava_resnet18_gradual_unfreezing_step_5_geo_photo_aug_dropout_fixed_losses.pdf}
+        \caption{Completely unfrozen}
+    \end{subfigure}
+    
+    \caption{Loss curves for the previous experiment's model (Experiment 3) with the correct implementation of gradual unfreezing technique and a CenterCrop of size 224x244.}
+    \label{fig:exp3bis_grid_2x3}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.6\linewidth]{figures/exp 3: geo photo augs with drop/cassava_resnet18_gradual_unfreezing_geo_photo_aug_dropout_CM.pdf}
+    \caption{Confusion matrix over Test set for the previous experiment's model (Experiment 3) with the correct implementation of gradual unfreezing technique and a CenterCrop of size 224x244.}
+    \label{fig:cm_exp3bis}
+\end{figure}
+
+\newpage
+\section{Test-time Augmentation}
+
+After all the experiments were performed, we wanted to apply test-time augmentation (with \href{https://github.com/qubvel/ttach}{\textit{ttach}} library) in order to see if the best model's performance could be improved just by modifying its evaluation method. The applied transformations and their parameters can be seen in the following table (Table \ref{tab:tta}):
+
+\begin{table}[H]
+\scriptsize
+\begin{tabularx}{\textwidth}{lXX}
+\toprule
+\textbf{Transformation} & \textbf{Parameters} \\
+\midrule
+HorizontalFlip & --- \\
+\midrule
+VerticalFlip & --- \\
+\midrule
+Rotate90 & \texttt{angles=[0, 90, 180, 270]} \\
+\midrule
+Scale & \texttt{scales=[0.95, 1.0, 1.05]} \\
+\midrule
+Multiply & \texttt{factors=[0.95, 1.0, 1.05]} \\
+\bottomrule
+\end{tabularx}
+\caption{Configuration of the TTA augmentations.}
+\label{tab:tta}
+\end{table}
+
+As we can see in the confusion matrix (Figure \ref{fig:cm_tta}), the use of TTA achieved a F1 score of \textbf{0.7261} (0.0211 point more than the best model's performance). 
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.8\linewidth]{figures/tta/tta_confusion_matrix.pdf}
+    \caption{Confusion matrix over Test set after applying TTA.}
+    \label{fig:cm_tta}
+\end{figure}
+
+\newpage
+\section{Conclusions}
+
+In this study we have seen that data augmentation demonstrated to be really useful for the Cassava disease classification task. The baseline model achieved an F1 score of \textbf{0.6423}, which was improved to \textbf{0.7050} by applying geometric and photometric augmentations combined with dropout regularization.
+
+We have seen that different augmentation strategies give different results. Geometric transformations (rotations, flips, affine transformations) worked better than photometric ones (color jitter, blur, noise). This is probably because cassava disease symptoms appear as structural patterns and lesions that don't change with geometric transformations, while photometric changes may modify the color variations that are important for disease identification. The combination of both types of augmentations with dropout achieved the best results, which means that using diverse augmentation strategies helps the model to generalize better.
+
+Test-time augmentation improved the best model's performance even more, reaching an F1 score of \textbf{0.7261}. This shows that making predictions over augmented versions of test samples can boost the classification accuracy without additional training.
+
+However, we noticed that all models still overfitted during training. This means that data augmentation alone, even combined with dropout, wasn't enough to fully solve the overfitting problem.
+
+\section{Future Work}
+
+In order to solve the overfitting problem observed in all experiments, we should explore additional regularization techniques such as:
+\begin{itemize}
+    \item Implementing advanced data augmentation techniques like mixup or cutmix.
+    \item Experimenting with different dropout rates or applying other regularization techniques.
+\end{itemize}
+
+Finally, we could implement our own test-time augmentation strategy using the same geometric and photometric transformations applied during training. This could give better results than the generic TTA approach we used, as it would be specifically designed for the augmentations the model learned during training.
+
+\end{document}
