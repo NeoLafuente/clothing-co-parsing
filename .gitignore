@@ -12,4 +12,6 @@ TRASH/
 
 *.ckpt
 
-clothes/
+clothes/train/
+clothes/test/
+clothes/valid/
