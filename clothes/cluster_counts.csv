@@ -1,7 +1,7 @@
-cluster,count
-no_clothing,1004
-footwear,978
-accessories,910
-upper_wear,863
-lower_wear,758
-one_piece_wear,388
+cluster,count,id,rgb
+no_clothing,1004,0,(69, 6, 90)
+accessories,910,1,(70, 12, 95)
+upper_wear,863,2,(72, 30, 112)
+one_piece_wear,388,3,(71, 40, 120)
+footwear,978,4,(70, 47, 124)
+lower_wear,758,5,(38, 127, 142)
