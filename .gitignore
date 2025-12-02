@@ -17,3 +17,7 @@ clothes/test/
 clothes/valid/
 ccp_unet/
 ccp_deeplabv3/
+
+test_metrics_by_class_TTA.csv
+
+test_metrics_with_TTA.csv
