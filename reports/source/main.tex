@@ -1,0 +1,369 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{geometry}
+\usepackage{tabularx}
+\usepackage{caption}
+\usepackage{subcaption}
+
+\geometry{margin=2.5cm}
+
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+
+\newenvironment{solution}{\begin{proof}[Solution]}{\end{proof}}
+
+\begin{document}
+
+% --------------------------------------------------------------
+%                         Title
+% --------------------------------------------------------------
+
+\begin{titlepage}
+    \centering
+    \vspace*{\fill}
+    {\LARGE Computer Vision\par}
+    {\LARGE Assignment 06\par}
+    \vspace{1cm}
+    {\LARGE Semantic Segmentation\par}
+    \vspace{1cm}
+    {\large Melchor Lafuente\par}
+    {\large Iker Jauregui \par}
+    \vspace*{\fill}
+\end{titlepage}
+
+\newpage
+
+% \title{\textbf{GarbageClassifier: A Deep Learning Approach for Waste Classification}}
+% \author{Computer Vision Project}
+% \date{\today}
+
+% \begin{document}
+
+% \maketitle
+% \newpage
+\tableofcontents
+\newpage
+
+\section{Introduction}
+
+The aim of this project is to benchmark different semantic segmentation architectures over the \href{https://huggingface.co/datasets/cayala/CCP}{\textit{Clothing Co-Parsing (CPP)}} dataset.
+
+\section{Exploratory Data Analysis (EDA)}
+
+An Exploratory Data Analysis was performed to understand the dataset characteristics and guide experiment development. The following key observations were made:
+
+\begin{itemize}
+    \item The provided dataset is compounded by 1007 samples which are divided in three different splits: \textit{train} (701 samples), \textit{valid} (151 samples) and \textit{test} (155 samples).
+    \item As we can see in Figure \ref{fig:orig_class_dist}, there is a total of 59 classes and the dataset is very imbalanced.
+\end{itemize}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/EDA/original_class_distribution.pdf}
+    \caption{Object class distribution in the original dataset.}
+    \label{fig:orig_class_dist}
+\end{figure}
+
+\newpage
+\section{Experimental Setup}
+
+\subsection{Object Clusterization}
+
+We considered that the original dataset had too many different classes with very few samples, so we decided to group the original classes into 6 different clusters. As can be seen at Table \ref{tab:clusters}, the clusterization was made by grouping similar types of clothes or objects. The resulting dataset is much more balanced (Figure \ref{fig:cluster_class_dist}).
+
+\begin{table}[H]
+\scriptsize
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textbf{Label} & \textbf{Cluster} & \textbf{Classes} \\
+\midrule
+0 & no\_clothing & background, skin, hair \\
+\midrule
+1 & accessories & belt, scarf, hat, gloves, bag, purse, wallet, accessories, bracelet, necklace, watch, ring, earrings, tie, sunglasses, glasses, intimate \\
+\midrule
+2 & upper\_wear & shirt, t-shirt, blouse, top, sweater, hoodie, sweatshirt, jacket, coat, blazer, cardigan, vest, cape, jumper, bra \\
+\midrule
+3 & one\_piece\_wear & dress, romper, bodysuit, suit, swimwear \\
+\midrule
+4 & footwear & shoes, sandals, boots, sneakers, flats, heels, pumps, wedges, loafers, socks, clogs \\
+\midrule
+5 & lower\_wear & pants, jeans, skirt, shorts, leggings, tights, stockings, panties \\
+\bottomrule
+\end{tabularx}
+\caption{Clusters' composition.}
+\label{tab:clusters}
+\end{table}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/EDA/clustered_object_distribution.pdf}
+    \caption{Clusterized object distribution sorted by frequency.}
+    \label{fig:cluster_class_dist}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/EDA/clusterized_mask.pdf}
+    \caption{Original masking (middle) vs new clusterized masking (right).}
+    \label{fig:cluster_sample}
+\end{figure}
+
+\newpage
+\subsection{Callbacks and LR Scheduler}
+
+During the experiments, two main callbacks were used: \textbf{EarlyStopping} and \textbf{ModelCheckpoint}. Instead of using a LearningRateFinder, we decided to employ a learning rate scheduler. We decided to use the \textbf{ReduceLROnPlateau} scheduler, as it could lead the models to obtain the best possible validation losses. Finally, we fixed the batch size to 32 not to overload the shared GPU. 
+
+\subsection{Model Architectures}
+In this project we decided to test three architectures: \textit{Unet}, \textit{DeepLabV3} and \textit{SegFormer}. This selection was made based on the differences between them.\\
+
+\textit{Unet} is a classic CNN-based encoder-decoder architecture with skip connections to preserve local details. In contrast, \textit{DeepLabV3} employs atrous convolutions and Atrous Spatial Pyramid Pooling (ASPP) for capturing multi-scale global context without a symmetric decoder. \textit{SegFormer}, however, shifts to a transformer paradigm, using hierarchical self-attention mechanisms for efficient, long-range dependency modeling. These differences span from traditional convolutional approaches to modern attention-based designs, allowing us to evaluate diverse segmentation strategies.
+
+\subsection{Evaluation Metrics}
+
+For the evaluation metrics, we used \textit{pixel accuracy}, \textit{intersection over union} and \textit{Dice coefficient} (F1 score).
+
+\newpage
+\section{Experiments}
+
+\subsection{Experiment 1: Unet}
+As we can see in the loss curves (Figure \ref{fig:unet_losses}), the training run quite smoothly, keeping a consistent gap between train and validation. The model actually learned and didn't overfit.\\
+
+If we look to the semantic segmentation generated (Figure \ref{fig:unet_preds}), we can see that the model's performance is quite good.\\
+
+However, if we analyze both global (Table \ref{tab:unet_glob_metrics}) and per class (Table \ref{tab:unet_class_metrics}) metrics, we find that the results are far from optimal. This behavior seems to be directly related to each classes' pixel density, because \textit{no\_clothing} class (composed by background, hair and skin) shows the best performance while \textit{one\_piece\_wear} (least frequent class) and \textit{accessories} (class with smallest objects) show the worst. This means that, even if we tried to balance the dataset by clusterizing the original object classes, we didn't balance it enough respect to the pixel amount or density.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/unet/unet_losses.pdf}
+    \caption{Train and validation losses for the Unet.}
+    \label{fig:unet_losses}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/unet/unet_test_pred.pdf}
+    \caption{Semantic segmentation generated by the Unet on a test sample.}
+    \label{fig:unet_preds}
+\end{figure}
+
+\begin{table}[H]
+\scriptsize
+\begin{tabularx}{\textwidth}{llXXX}
+\toprule
+\textbf{Pixel accuracy} & \textbf{IoU (macro)} & \textbf{Dice (macro)} \\
+\midrule
+0.912795 & 0.482819 & 0.555344 \\
+\bottomrule
+\end{tabularx}
+\caption{Global metrics of Unet on the Test set.}
+\label{tab:unet_glob_metrics}
+\end{table}
+
+\begin{table}[H]
+\scriptsize
+\begin{tabularx}{\textwidth}{llXXXXX}
+\toprule
+\textbf{Label} & \textbf{Cluster} & \textbf{IoU} & \textbf{Dice} & \textbf{Stdev IoU} & \textbf{Stdev Dice} \\
+\midrule
+0 & no\_clothing & 0.964026 & 0.981176 & 0.041963 & 0.023946 \\
+\midrule
+1 & accessories & 0.230452 & 0.320262 & 0.237895 & 0.286325 \\
+\midrule
+2 & upper\_wear & 0.552506 & 0.646452 & 0.314381 & 0.329074 \\
+\midrule
+3 & one\_piece\_wear & 0.120234 & 0.164572 & 0.212539 & 0.268294 \\
+\midrule
+4 & footwear & 0.609142 & 0.730069 & 0.217529 & 0.204537 \\
+\midrule
+5 & lower\_wear & 0.411789 & 0.480077 & 0.367614 & 0.403097 \\
+\bottomrule
+\end{tabularx}
+\caption{Metrics per class of Unet on Test set.}
+\label{tab:unet_class_metrics}
+\end{table}
+
+\subsection{Experiment 2: DeepLabV3}
+The results obtained in this experiment are very similar to the previous one (Figure \ref{fig:deeplabv3_losses} and Figure \ref{fig:deeplabv3_preds}). There is only a slight difference respect to the global (Table \ref{tab:deeplabv3_glob_metrics}) and per class (Table \ref{tab:deeplabv3_class_metrics}) metrics, but not significant enough to find a reason to justify it.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/deeplabv3/deeplabv3_losses.pdf}
+    \caption{Train and validation losses for the DeepLabV3.}
+    \label{fig:deeplabv3_losses}
+\end{figure}
+
+\newpage
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/deeplabv3/deeplabv3_test_pred.pdf}
+    \caption{Semantic segmentation generated by the DeepLabV3 on a test sample.}
+    \label{fig:deeplabv3_preds}
+\end{figure}
+
+\begin{table}[H]
+\scriptsize
+\begin{tabularx}{\textwidth}{llXXX}
+\toprule
+\textbf{Pixel accuracy} & \textbf{IoU (macro)} & \textbf{Dice (macro)} \\
+\midrule
+0.915002 & 0.484669 & 0.558722 \\
+\bottomrule
+\end{tabularx}
+\caption{Global metrics of DeepLabV3 on the Test set.}
+\label{tab:deeplabv3_glob_metrics}
+\end{table}
+
+\begin{table}[H]
+\scriptsize
+\begin{tabularx}{\textwidth}{llXXXXX}
+\toprule
+\textbf{Label} & \textbf{Cluster} & \textbf{IoU} & \textbf{Dice} & \textbf{Stdev IoU} & \textbf{Stdev Dice} \\
+\midrule
+0 & no\_clothing & 0.963348 & 0.981100 & 0.029008 & 0.015791 \\
+\midrule
+1 & accessories & 0.205223 & 0.283340 & 0.239811 & 0.292976 \\
+\midrule
+2 & upper\_wear & 0.539989 & 0.636478 & 0.310977 & 0.327530 \\
+\midrule
+3 & one\_piece\_wear & 0.137900 & 0.184833 & 0.229484 & 0.289357 \\
+\midrule
+4 & footwear & 0.579210 & 0.702491 & 0.225605 & 0.222593 \\
+\midrule
+5 & lower\_wear & 0.395302 & 0.467320 & 0.357488 & 0.394218 \\
+\bottomrule
+\end{tabularx}
+\caption{Metrics per class of DeepLabV3 on Test set.}
+\label{tab:deeplabv3_class_metrics}
+\end{table}
+
+\subsection{Experiment 3: SegFormer}
+Once again, comparing to the previous experiments, we don't see any big differences on the predicted masks (Figure \ref{fig:unet_preds}). However, this time we can see that the obtained metrics (Table \ref{tab:segformer_glob_metrics} and Table \ref{tab:segformer_class_metrics}) are worse than the obtained with the previous models. The reason behind this could be that this time the model's training stopped too early and didn't learn as good as before (Figure \ref{fig:segformer_losses}).
+
+\newpage
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/segformer/segformer_losses.pdf}
+    \caption{Train and validation losses for the SegFormer.}
+    \label{fig:segformer_losses}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/segformer/segformer_test_pred.pdf}
+    \caption{Semantic segmentation generated by the SegFormer on a test sample.}
+    \label{fig:segformer_preds}
+\end{figure}
+
+\begin{table}[H]
+\scriptsize
+\begin{tabularx}{\textwidth}{llXXX}
+\toprule
+\textbf{Pixel accuracy} & \textbf{IoU (macro)} & \textbf{Dice (macro)} \\
+\midrule
+0.901348 & 0.439118 & 0.513290 \\
+\bottomrule
+\end{tabularx}
+\caption{Global metrics of SegFormer on the Test set.}
+\label{tab:segformer_glob_metrics}
+\end{table}
+
+\begin{table}[H]
+\scriptsize
+\begin{tabularx}{\textwidth}{llXXXXX}
+\toprule
+\textbf{Label} & \textbf{Cluster} & \textbf{IoU} & \textbf{Dice} & \textbf{Stdev IoU} & \textbf{Stdev Dice} \\
+\midrule
+0 & no\_clothing & 0.948233 & 0.972802 & 0.046114 & 0.026713 \\
+\midrule
+1 & accessories & 0.141418 & 0.198385 & 0.212653 & 0.269725 \\
+\midrule
+2 & upper\_wear & 0.486888 & 0.596377 & 0.285352 & 0.311494 \\
+\midrule
+3 & one\_piece\_wear & 0.124364 & 0.177076 & 0.196523 & 0.257164 \\
+\midrule
+4 & footwear & 0.541002 & 0.662154 & 0.250411 & 0.251537 \\
+\midrule
+5 & lower\_wear & 0.355433 & 0.431262 & 0.337354 & 0.380958 \\
+\bottomrule
+\end{tabularx}
+\caption{Metrics per class of SegFormer on Test set.}
+\label{tab:segformer_class_metrics}
+\end{table}
+
+\subsection{Experiment 4: TTA}
+
+Taking into account the three trained models' performance, we can see that the best results were obtained by Unet and DeepLabV3. If we look closely to the metrics per class (Table \ref{tab:unet_class_metrics} and Table \ref{tab:deeplabv3_class_metrics}), we can see that Unet is slightly better, so for the next TTA experiment we selected this architecture.\\
+
+Various transformation configurations were tested and, in most of the cases, the obtained results were worse compared to not using TTA. Even if this can seem strange, this behavior could have the following explanations:
+
+\begin{itemize}
+    \item \textit{VerticalFlip}: Under this context, this transformation doesn't have any sense at all, because the position of the clothes normally follow a specific order (hats on top, footwear at bottom, etc.). Flipping vertically the image could confuse the models.
+    \item \textit{Rotation90}: Same as previous transformation, applying big rotations to the image could locate clothes on unnatural places, leading models to confusion.
+    \item \textit{Add} and \textit{Multiply}: Unlike the previous transformations, these are photometric transformations and only modify pixels' intensity instead of their position. So, at first thought, they should have improved model's performance, but they actually didn't. The reason beneath it may be that we didn't use any data augmentation techniques during training time, so the model may have related some colors to specific classes.
+\end{itemize}
+
+The only improvement we saw was with the \textit{HorizontalFlip} transformation. That makes perfect sense with the explanations we recently gave, because flipping horizontally the image doesn't perturb the natural order of the clothes and doesn't modify pixel intensities. Here are the final metrics obtained with this transformation:
+
+\begin{table}[H]
+\scriptsize
+\begin{tabularx}{\textwidth}{llXXX}
+\toprule
+\textbf{Method} & \textbf{Pixel accuracy} & \textbf{IoU (macro)} & \textbf{Dice (macro)} \\
+\midrule
+No TTA & 0.912795 & 0.482819 & 0.555344 \\
+With TTA & \textbf{0.914365} & \textbf{0.486993} & \textbf{0.559290} \\
+\bottomrule
+\end{tabularx}
+\caption{Comparison between global metrics of the Unet with and without TTA.}
+\label{tab:unet_tta_glob_metrics}
+\end{table}
+
+\begin{table}[H]
+\scriptsize
+\begin{tabularx}{\textwidth}{llXXXXX}
+\toprule
+\textbf{Label} & \textbf{Cluster} & \textbf{IoU (No TTA)} & \textbf{IoU (With TTA)} & \textbf{Dice (No TTA)} & \textbf{Dice (With TTA)} \\
+\midrule
+0 & no\_clothing & 0.964026 & \textbf{0.964844} & 0.981176 & \textbf{0.981633} \\
+\midrule
+1 & accessories & 0.230452 & \textbf{0.240038} & 0.320262 & \textbf{0.332759} \\
+\midrule
+2 & upper\_wear & 0.552506 & \textbf{0.555317} & 0.646452 & \textbf{0.648990} \\
+\midrule
+3 & one\_piece\_wear & 0.120234 & \textbf{0.126183} & 0.164572 & \textbf{0.170652} \\
+\midrule
+4 & footwear & \textbf{0.609142} & 0.608691 & \textbf{0.730069} & 0.725661 \\
+\midrule
+5 & lower\_wear & 0.411789 & \textbf{0.413557} & 0.480077 & \textbf{0.481740} \\
+\bottomrule
+\end{tabularx}
+\caption{Comparison of per class metrics of the Unet with and without TTA.}
+\label{tab:unet_tta_class_metrics}
+\end{table}
+
+As we can see in the previous tables (Table \ref{tab:unet_tta_glob_metrics} and Table \ref{tab:unet_tta_class_metrics}), the metrics were improved for almost all the classes (all except \textit{footwear}).
+
+\newpage
+\section{Conclusions}
+
+The experiments conducted in this project revealed that, despite the clusterization of the original 59 classes into 6 broader categories, the models didn't achieve really good metrics. This behavior is directly related to the class pixel density imbalance present in the dataset, where \textit{no\_clothing} dominates the pixel distribution while classes like \textit{one\_piece\_wear} and \textit{accessories} represent much smaller portions. This imbalance prevented the models from learning robust representations for minority classes.\\
+
+Additionally, the TTA experiments demonstrated that the use of certain transformations can be perjudicial when they generate samples that didn't be seen during training time. Transformations like \textit{VerticalFlip}, \textit{Rotation90}, and photometric variations (\textit{Add}, \textit{Multiply}) actually degraded performance, as they introduced unrealistic configurations (e.g., flipped persons, unnatural color variations) that the models were not prepared to handle.
+
+\section{Future Work}
+
+Based on the findings of this project, the following improvements are proposed:
+
+\begin{itemize}
+    \item \textbf{Balance dataset according to class pixel densities}: Implement techniques such as weighted sampling or synthetic minority oversampling to address the severe pixel-level class imbalance.
+    
+    \item \textbf{Retrain models with data augmentation}: Incorporate data augmentation techniques during training time, including horizontal flips, color jittering, and intensity variations, so that models become robust to the transformations used in TTA.
+\end{itemize}
+
+\end{document}
